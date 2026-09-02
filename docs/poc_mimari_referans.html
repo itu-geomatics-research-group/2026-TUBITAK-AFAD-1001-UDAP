@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Deprem Erken Hasar Tahmini PoC — Mimari Referans</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --ink:#1B2630;
+    --ink-soft:#4A5560;
+    --paper:#F7F6F2;
+    --card:#FFFFFF;
+    --line:#DEDBD1;
+
+    --teal:#0F6E56;   --teal-bg:#E1F5EE;   --teal-line:#9FE1CB;
+    --blue:#185FA5;   --blue-bg:#E6F1FB;   --blue-line:#85B7EB;
+    --coral:#993C1D;  --coral-bg:#FAECE7;  --coral-line:#F0997B;
+    --purple:#534AB7; --purple-bg:#EEEDFE; --purple-line:#AFA9EC;
+    --green:#3B6D11;  --green-bg:#EAF3DE;  --green-line:#97C459;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif; line-height:1.55;
+    padding:56px 24px 100px;
+  }
+  .wrap{max-width:760px; margin:0 auto;}
+
+  .doc-head{margin-bottom:48px;}
+  .doc-head .kicker{
+    font-size:13px; color:var(--ink-soft); font-family:'IBM Plex Mono', monospace;
+    margin:0 0 10px;
+  }
+  .doc-head h1{
+    font-size:30px; font-weight:600; margin:0 0 12px; letter-spacing:-0.01em;
+  }
+  .doc-head p{font-size:16px; color:var(--ink-soft); max-width:60ch; margin:0;}
+
+  nav.toc{
+    display:flex; flex-wrap:wrap; gap:8px 14px;
+    margin:28px 0 0; padding:16px 18px; background:var(--card);
+    border:1px solid var(--line); border-radius:10px;
+  }
+  nav.toc a{
+    font-size:13px; color:var(--ink); text-decoration:none;
+    border-bottom:1px solid var(--line); padding-bottom:1px;
+  }
+  nav.toc a:hover{border-bottom-color:var(--ink);}
+
+  section.layer{margin-top:64px;}
+  .layer-head{
+    display:flex; gap:16px; align-items:baseline;
+    padding-left:18px; border-left:3px solid var(--accent);
+    margin-bottom:22px;
+  }
+  .layer-num{
+    font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--accent);
+    flex-shrink:0;
+  }
+  .layer-head h2{font-size:20px; font-weight:600; margin:0;}
+  .layer-purpose{
+    padding-left:18px; border-left:3px solid transparent;
+    color:var(--ink-soft); font-size:15px; margin:-14px 0 24px; max-width:62ch;
+  }
+
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:20px 22px; margin-bottom:16px;
+  }
+  .card h3{
+    font-size:16px; font-weight:600; margin:0 0 6px;
+  }
+  .card .role{
+    font-size:14.5px; color:var(--ink-soft); margin:0 0 16px;
+  }
+
+  .iomap{
+    display:grid; grid-template-columns:1fr 1fr; gap:14px 20px;
+  }
+  .io-block{border-top:1px solid var(--line); padding-top:10px;}
+  .io-label{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.02em;
+    color:var(--accent); margin:0 0 6px; text-transform:lowercase;
+  }
+  .io-block ul{margin:0; padding-left:18px; font-size:14px;}
+  .io-block li{margin-bottom:4px;}
+  .io-block .none{font-size:14px; color:var(--ink-soft); font-style:italic;}
+
+  .flowto{
+    grid-column:1 / -1; border-top:1px dashed var(--line); padding-top:10px;
+    font-size:13.5px; color:var(--ink-soft);
+  }
+  .flowto b{color:var(--ink); font-weight:500;}
+
+  .tag{
+    display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:12px;
+    background:var(--accent-bg); color:var(--accent); padding:2px 8px; border-radius:5px;
+    border:1px solid var(--accent-line);
+  }
+
+  section.layer[data-accent="teal"]{--accent:var(--teal); --accent-bg:var(--teal-bg); --accent-line:var(--teal-line);}
+  section.layer[data-accent="blue"]{--accent:var(--blue); --accent-bg:var(--blue-bg); --accent-line:var(--blue-line);}
+  section.layer[data-accent="coral"]{--accent:var(--coral); --accent-bg:var(--coral-bg); --accent-line:var(--coral-line);}
+  section.layer[data-accent="purple"]{--accent:var(--purple); --accent-bg:var(--purple-bg); --accent-line:var(--purple-line);}
+  section.layer[data-accent="green"]{--accent:var(--green); --accent-bg:var(--green-bg); --accent-line:var(--green-line);}
+
+  .footer-note{
+    margin-top:64px; padding-top:20px; border-top:1px solid var(--line);
+    font-size:13px; color:var(--ink-soft);
+  }
+
+  @media (max-width:600px){
+    .iomap{grid-template-columns:1fr;}
+    body{padding:36px 16px 80px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <p class="kicker">TÜBİTAK-AFAD 1001-UDAP · madde 2.3 · pilot mimari</p>
+    <h1>Deprem erken hasar tahmini PoC — mimari referans</h1>
+    <p>Beş katman, her katmandaki her öğenin ne işe yaradığı, neyi girdi olarak aldığı ve ürettiği çıktının nereye aktığı. Bu doküman PoC'nin zihin haritasıdır.</p>
+  </div>
+
+  <nav class="toc">
+    <a href="#l1">1 · Dış veri kaynakları</a>
+    <a href="#l2">2 · PostGIS veritabanı</a>
+    <a href="#l3">3 · Hasar tahmin motoru</a>
+    <a href="#l4">4 · Mekânsal veri servisi</a>
+    <a href="#l5">5 · Paydaşlar</a>
+  </nav>
+
+  <!-- LAYER 1 -->
+  <section class="layer" data-accent="teal" id="l1">
+    <div class="layer-head">
+      <span class="layer-num">01</span>
+      <h2>Dış veri kaynakları</h2>
+    </div>
+    <p class="layer-purpose">PoC'nin ihtiyaç duyduğu ham verinin, Türkiye'ye özgü veri temini süreci tamamlanana kadar açık ve uluslararası kaynaklardan sağlanması.</p>
+
+    <div class="card">
+      <h3>OpenStreetMap</h3>
+      <p class="role">Bina ayak izlerini ve kısmi yapı özniteliklerini sağlayan açık coğrafi veri kaynağı.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <p class="none">Yok — harici açık veri kaynağı</p>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <ul><li>Bina poligonları (geometri)</li><li>Kısmi kat/adres bilgisi</li></ul>
+        </div>
+        <div class="flowto">→ <b>Bina envanteri tablosuna</b> (katman 2) aktarılır</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>USGS</h3>
+      <p class="role">Deprem kataloğu ve gerçek zamanlı yer hareketi verisi (ShakeMap) sağlayan kurum kaynağı.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <p class="none">Yok</p>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <ul><li>Deprem olay kayıtları (büyüklük, derinlik, konum)</li><li>ShakeMap yer hareketi grid verisi</li></ul>
+        </div>
+        <div class="flowto">→ <b>Sismik veri tablosuna</b> (katman 2) aktarılır</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>OpenQuake · GEM</h3>
+      <p class="role">Küresel bina taksonomisi ve kırılganlık/hasar eğrisi parametrelerini sağlayan referans model kütüphanesi.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <p class="none">Yok — referans model kütüphanesi</p>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <ul><li>Kırılganlık fonksiyonu parametreleri (medyan, β)</li><li>Taksonomi sınıflandırma şeması</li></ul>
+        </div>
+        <div class="flowto">→ <b>Kırılganlık fonksiyonu modülüne</b> (katman 3) doğrudan girdi</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>WorldPop</h3>
+      <p class="role">Yüksek çözünürlüklü, grid bazlı mekânsal nüfus dağılımı verisi sağlar.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <p class="none">Yok</p>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <ul><li>Grid bazlı nüfus yoğunluğu (raster)</li></ul>
+        </div>
+        <div class="flowto">→ <b>Nüfus + adres tablosuna</b> (katman 2) aktarılır</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LAYER 2 -->
+  <section class="layer" data-accent="blue" id="l2">
+    <div class="layer-head">
+      <span class="layer-num">02</span>
+      <h2>PostGIS mekânsal veritabanı</h2>
+    </div>
+    <p class="layer-purpose">Farklı kaynaklardan gelen ham verinin tek bir coğrafi veritabanı şemasında birleştirilmesi, temizlenmesi ve sorgulanabilir hale getirilmesi.</p>
+
+    <div class="card">
+      <h3>Bina envanteri tablosu</h3>
+      <p class="role">Her binayı geometri ve öznitelik (kat sayısı, yapım yılı, taksonomi sınıfı) olarak saklar.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <ul><li><span class="tag">OpenStreetMap</span> bina poligonları</li></ul>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <ul><li>Taksonomi etiketli bina kayıtları</li></ul>
+        </div>
+        <div class="flowto">→ <b>Kırılganlık fonksiyonu modülüne</b> (katman 3) ve <b>mekânsal veri servisine</b> (katman 4) aktarılır</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Nüfus + adres tablosu</h3>
+      <p class="role">Nüfus yoğunluğunu ve adres noktalarını bina/mahalle ölçeğinde ilişkilendirir.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <ul><li><span class="tag">WorldPop</span> nüfus rasteri</li><li><span class="tag">OSM</span> adres noktaları</li></ul>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <ul><li>Bina/mahalle bazlı nüfus tahmini</li></ul>
+        </div>
+        <div class="flowto">→ <b>Hasar tahmin motorunda</b> (katman 3) etkilenen nüfus hesabına, ayrıca <b>mekânsal veri servisine</b> (katman 4) girdi olur</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Sismik veri tablosu</h3>
+      <p class="role">Deprem kataloğu kayıtlarını ve yer hareketi ölçümlerini saklar.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <ul><li><span class="tag">USGS</span> deprem katalog kayıtları</li><li><span class="tag">USGS</span> ShakeMap grid verisi</li></ul>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <ul><li>Senaryo bazlı yer hareketi şiddeti (PGA, Sa)</li></ul>
+        </div>
+        <div class="flowto">→ <b>GMM hesaplama modülüne</b> (katman 3) doğrudan girdi</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LAYER 3 -->
+  <section class="layer" data-accent="coral" id="l3">
+    <div class="layer-head">
+      <span class="layer-num">03</span>
+      <h2>Hasar tahmin motoru</h2>
+    </div>
+    <p class="layer-purpose">Bina envanteri, kırılganlık fonksiyonları ve yer hareketi verisini birleştirerek bina bazlı hasar olasılığı üretmek.</p>
+
+    <div class="card">
+      <h3>Kırılganlık fonksiyonu modülü</h3>
+      <p class="role">Her yapı taksonomi sınıfı için hasar olasılığı eğrisini tanımlar ve OpenQuake'in beklediği model formatına dönüştürür.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <ul><li><span class="tag">OpenQuake</span> kırılganlık parametreleri</li><li><span class="tag">bina envanteri</span> taksonomi etiketleri</li></ul>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <ul><li>NRML formatında kırılganlık model dosyası</li></ul>
+        </div>
+        <div class="flowto">→ <b>GMM hesaplama modülüyle birlikte</b> OpenQuake Engine'e girdi olarak verilir</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>GMM hesaplama modülü</h3>
+      <p class="role">Belirli bir deprem senaryosu için her bina konumundaki yer hareketi şiddetini tahmin eder ve hasar durumu olasılığını hesaplar.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <ul><li><span class="tag">sismik veri</span> senaryo parametreleri</li><li>kırılganlık model dosyası</li></ul>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <ul><li>Bina bazlı hasar durumu olasılık dağılımı</li><li>(hafif / orta / ağır / göçme)</li></ul>
+        </div>
+        <div class="flowto">→ Sonuçlar geri <b>PostGIS'e</b> (katman 2) yazılır, ardından <b>mekânsal veri servisine</b> (katman 4) aktarılır</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LAYER 4 -->
+  <section class="layer" data-accent="purple" id="l4">
+    <div class="layer-head">
+      <span class="layer-num">04</span>
+      <h2>Mekânsal veri servisi</h2>
+    </div>
+    <p class="layer-purpose">Veritabanındaki ham ve işlenmiş katmanları, OGC standardında (WMS/WFS) dış sistemlere ve son kullanıcılara sunmak.</p>
+
+    <div class="card">
+      <h3>WMS / WFS servis katmanı · GeoServer</h3>
+      <p class="role">Bina envanteri, hasar tahmin sonuçları ve nüfus katmanlarını standart coğrafi web servisleri olarak yayınlar.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <ul><li><span class="tag">bina envanteri</span> tablosu</li><li><span class="tag">hasar tahmin</span> sonuç tabloları</li><li><span class="tag">nüfus + adres</span> tablosu</li></ul>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <ul><li>WMS raster katmanları (görsel harita)</li><li>WFS vektör katmanları (sorgulanabilir veri)</li></ul>
+        </div>
+        <div class="flowto">→ <b>Yerel yönetim, AFAD ve web haritası</b> (katman 5) tarafından tüketilir</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LAYER 5 -->
+  <section class="layer" data-accent="green" id="l5">
+    <div class="layer-head">
+      <span class="layer-num">05</span>
+      <h2>Paydaşlar</h2>
+    </div>
+    <p class="layer-purpose">Üretilen bilginin karar alma ve afet yönetimi süreçlerinde kullanılması. PoC kapsamında bu katman, servisin tüketilebilirliğini göstermek amacıyla temsil edilir.</p>
+
+    <div class="card">
+      <h3>Yerel yönetim</h3>
+      <p class="role">Hasar tahminini karar destek ekranında görüntüleyip müdahale önceliklendirmesi yapar.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <ul><li><span class="tag">WMS/WFS</span> katmanları</li></ul>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <p class="none">PoC kapsamı dışında (müdahale planı — sonraki faz)</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>AFAD / il afet müdürlüğü</h3>
+      <p class="role">Afet senaryosu üretiminde ve kaynak planlamasında sorgulanabilir veriyi kullanır.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <ul><li><span class="tag">WFS</span> sorgulanabilir katmanlar</li></ul>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <p class="none">PoC kapsamı dışında (resmi afet kararları — sonraki faz)</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Web haritası</h3>
+      <p class="role">Genel görselleştirme ve paydaşlar arası paylaşım için interaktif harita arayüzü.</p>
+      <div class="iomap">
+        <div class="io-block">
+          <p class="io-label">girdi</p>
+          <ul><li><span class="tag">WMS</span> görsel katmanlar</li></ul>
+        </div>
+        <div class="io-block">
+          <p class="io-label">çıktı</p>
+          <ul><li>İnteraktif harita görünümü</li></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="footer-note">Veri akışı özeti: dış kaynaklar → PostGIS → hasar tahmin motoru → mekânsal veri servisi → paydaşlar. Her ok, bir önceki katmanın çıktısının bir sonrakinin girdisi olduğunu gösterir — bu zincir PoC'nin uçtan uca doğrulanması gereken tek hattıdır.</p>
+
+</div>
+</body>
+</html>

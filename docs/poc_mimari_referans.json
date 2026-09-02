@@ -1,0 +1,201 @@
+{
+  "proje": "Deprem Erken Hasar Tahmini PoC",
+  "baglam": "TUBITAK-AFAD 1001-UDAP - madde 2.3 - pilot mimari",
+  "veri_akisi_ozeti": "Dis kaynaklar -> PostGIS -> Hasar tahmin motoru -> Mekansal veri servisi -> Paydaslar",
+  "katmanlar": [
+    {
+      "sira": 1,
+      "id": "dis_veri_kaynaklari",
+      "ad": "Dış veri kaynakları",
+      "amac": "PoC'nin ihtiyaç duyduğu ham verinin, Türkiye'ye özgü veri temini süreci tamamlanana kadar açık ve uluslararası kaynaklardan sağlanması.",
+      "ogeler": [
+        {
+          "ad": "OpenStreetMap",
+          "islevi": "Bina ayak izlerini ve kısmi yapı özniteliklerini sağlayan açık coğrafi veri kaynağı.",
+          "girdi": [],
+          "cikti": [
+            "Bina poligonları (geometri)",
+            "Kısmi kat/adres bilgisi"
+          ],
+          "cikti_hedefi": ["postgis.bina_envanteri"]
+        },
+        {
+          "ad": "USGS",
+          "islevi": "Deprem kataloğu ve gerçek zamanlı yer hareketi verisi (ShakeMap) sağlayan kurum kaynağı.",
+          "girdi": [],
+          "cikti": [
+            "Deprem olay kayıtları (büyüklük, derinlik, konum)",
+            "ShakeMap yer hareketi grid verisi"
+          ],
+          "cikti_hedefi": ["postgis.sismik_veri"]
+        },
+        {
+          "ad": "OpenQuake (GEM)",
+          "islevi": "Küresel bina taksonomisi ve kırılganlık/hasar eğrisi parametrelerini sağlayan referans model kütüphanesi.",
+          "girdi": [],
+          "cikti": [
+            "Kırılganlık fonksiyonu parametreleri (medyan, beta)",
+            "Taksonomi sınıflandırma şeması"
+          ],
+          "cikti_hedefi": ["hasar_tahmin_motoru.kirilganlik_fonksiyonu_modulu"]
+        },
+        {
+          "ad": "WorldPop",
+          "islevi": "Yüksek çözünürlüklü, grid bazlı mekânsal nüfus dağılımı verisi sağlar.",
+          "girdi": [],
+          "cikti": [
+            "Grid bazlı nüfus yoğunluğu (raster)"
+          ],
+          "cikti_hedefi": ["postgis.nufus_ve_adres"]
+        }
+      ]
+    },
+    {
+      "sira": 2,
+      "id": "postgis",
+      "ad": "PostGIS mekânsal veritabanı",
+      "amac": "Farklı kaynaklardan gelen ham verinin tek bir coğrafi veritabanı şemasında birleştirilmesi, temizlenmesi ve sorgulanabilir hale getirilmesi.",
+      "ogeler": [
+        {
+          "id": "bina_envanteri",
+          "ad": "Bina envanteri tablosu",
+          "islevi": "Her binayı geometri ve öznitelik (kat sayısı, yapım yılı, taksonomi sınıfı) olarak saklar.",
+          "girdi": ["dis_veri_kaynaklari.OpenStreetMap: bina poligonları"],
+          "cikti": [
+            "Taksonomi etiketli bina kayıtları"
+          ],
+          "cikti_hedefi": [
+            "hasar_tahmin_motoru.kirilganlik_fonksiyonu_modulu",
+            "mekansal_veri_servisi.wms_wfs"
+          ]
+        },
+        {
+          "id": "nufus_ve_adres",
+          "ad": "Nüfus + adres tablosu",
+          "islevi": "Nüfus yoğunluğunu ve adres noktalarını bina/mahalle ölçeğinde ilişkilendirir.",
+          "girdi": [
+            "dis_veri_kaynaklari.WorldPop: nüfus rasteri",
+            "dis_veri_kaynaklari.OpenStreetMap: adres noktaları"
+          ],
+          "cikti": [
+            "Bina/mahalle bazlı nüfus tahmini"
+          ],
+          "cikti_hedefi": [
+            "hasar_tahmin_motoru: etkilenen nüfus hesabı",
+            "mekansal_veri_servisi.wms_wfs"
+          ]
+        },
+        {
+          "id": "sismik_veri",
+          "ad": "Sismik veri tablosu",
+          "islevi": "Deprem kataloğu kayıtlarını ve yer hareketi ölçümlerini saklar.",
+          "girdi": [
+            "dis_veri_kaynaklari.USGS: deprem katalog kayıtları",
+            "dis_veri_kaynaklari.USGS: ShakeMap grid verisi"
+          ],
+          "cikti": [
+            "Senaryo bazlı yer hareketi şiddeti (PGA, Sa)"
+          ],
+          "cikti_hedefi": ["hasar_tahmin_motoru.gmm_hesaplama_modulu"]
+        }
+      ]
+    },
+    {
+      "sira": 3,
+      "id": "hasar_tahmin_motoru",
+      "ad": "Hasar tahmin motoru",
+      "amac": "Bina envanteri, kırılganlık fonksiyonları ve yer hareketi verisini birleştirerek bina bazlı hasar olasılığı üretmek.",
+      "ogeler": [
+        {
+          "id": "kirilganlik_fonksiyonu_modulu",
+          "ad": "Kırılganlık fonksiyonu modülü",
+          "islevi": "Her yapı taksonomi sınıfı için hasar olasılığı eğrisini tanımlar ve OpenQuake'in beklediği model formatına dönüştürür.",
+          "girdi": [
+            "dis_veri_kaynaklari.OpenQuake (GEM): kırılganlık parametreleri",
+            "postgis.bina_envanteri: taksonomi etiketleri"
+          ],
+          "cikti": [
+            "NRML formatında kırılganlık model dosyası"
+          ],
+          "cikti_hedefi": ["hasar_tahmin_motoru.gmm_hesaplama_modulu (OpenQuake Engine girdisi olarak birlikte kullanılır)"]
+        },
+        {
+          "id": "gmm_hesaplama_modulu",
+          "ad": "GMM hesaplama modülü",
+          "islevi": "Belirli bir deprem senaryosu için her bina konumundaki yer hareketi şiddetini tahmin eder ve hasar durumu olasılığını hesaplar.",
+          "girdi": [
+            "postgis.sismik_veri: senaryo parametreleri",
+            "hasar_tahmin_motoru.kirilganlik_fonksiyonu_modulu: kırılganlık model dosyası"
+          ],
+          "cikti": [
+            "Bina bazlı hasar durumu olasılık dağılımı (hafif / orta / ağır / göçme)"
+          ],
+          "cikti_hedefi": [
+            "postgis (sonuç tablosu olarak geri yazılır)",
+            "mekansal_veri_servisi.wms_wfs"
+          ]
+        }
+      ]
+    },
+    {
+      "sira": 4,
+      "id": "mekansal_veri_servisi",
+      "ad": "Mekânsal veri servisi",
+      "amac": "Veritabanındaki ham ve işlenmiş katmanları, OGC standardında (WMS/WFS) dış sistemlere ve son kullanıcılara sunmak.",
+      "ogeler": [
+        {
+          "id": "wms_wfs",
+          "ad": "WMS / WFS servis katmanı (GeoServer)",
+          "islevi": "Bina envanteri, hasar tahmin sonuçları ve nüfus katmanlarını standart coğrafi web servisleri olarak yayınlar.",
+          "girdi": [
+            "postgis.bina_envanteri",
+            "hasar_tahmin_motoru.gmm_hesaplama_modulu: hasar sonuç tabloları",
+            "postgis.nufus_ve_adres"
+          ],
+          "cikti": [
+            "WMS raster katmanları (görsel harita)",
+            "WFS vektör katmanları (sorgulanabilir veri)"
+          ],
+          "cikti_hedefi": [
+            "paydaslar.yerel_yonetim",
+            "paydaslar.afad",
+            "paydaslar.web_haritasi"
+          ]
+        }
+      ]
+    },
+    {
+      "sira": 5,
+      "id": "paydaslar",
+      "ad": "Paydaşlar",
+      "amac": "Üretilen bilginin karar alma ve afet yönetimi süreçlerinde kullanılması. PoC kapsamında bu katman, servisin tüketilebilirliğini göstermek amacıyla temsil edilir.",
+      "ogeler": [
+        {
+          "id": "yerel_yonetim",
+          "ad": "Yerel yönetim",
+          "islevi": "Hasar tahminini karar destek ekranında görüntüleyip müdahale önceliklendirmesi yapar.",
+          "girdi": ["mekansal_veri_servisi.wms_wfs"],
+          "cikti": [],
+          "not": "PoC kapsamı dışında - müdahale planı sonraki faz"
+        },
+        {
+          "id": "afad",
+          "ad": "AFAD / il afet müdürlüğü",
+          "islevi": "Afet senaryosu üretiminde ve kaynak planlamasında sorgulanabilir veriyi kullanır.",
+          "girdi": ["mekansal_veri_servisi.wms_wfs: WFS sorgulanabilir katmanlar"],
+          "cikti": [],
+          "not": "PoC kapsamı dışında - resmi afet kararları sonraki faz"
+        },
+        {
+          "id": "web_haritasi",
+          "ad": "Web haritası",
+          "islevi": "Genel görselleştirme ve paydaşlar arası paylaşım için interaktif harita arayüzü.",
+          "girdi": ["mekansal_veri_servisi.wms_wfs: WMS görsel katmanlar"],
+          "cikti": [
+            "İnteraktif harita görünümü"
+          ]
+        }
+      ]
+    }
+  ]
+}
